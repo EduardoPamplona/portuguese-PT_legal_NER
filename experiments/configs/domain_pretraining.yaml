@@ -1,0 +1,50 @@
+# Domain-Adaptive Pretraining Configuration
+experiment_name: "pt_legal_domain_pretraining"
+experiment_type: "domain_pretraining"
+description: "Domain-adaptive pretraining on Portuguese legal text corpus"
+tags:
+  - "pretraining"
+  - "portuguese"
+  - "legal"
+  - "domain-adaptation"
+
+model:
+  name: "eduagarcia/RoBERTaLexPT-base"
+  num_labels: 19  # Not used for pretraining
+  dropout: 0.1
+  attention_dropout: 0.1
+  hidden_dropout: 0.1
+
+data:
+  # For pretraining, we specify the raw text data
+  train_file: "data/train.conll"  # Not used for pretraining
+  val_file: "data/val.conll"      # Not used for pretraining  
+  test_file: "data/test.conll"    # Not used for pretraining
+  max_length: 512
+  preprocessing_num_workers: 4
+
+# Path to raw legal text data for domain pretraining
+pretraining_data: "data/legal_corpus.txt"
+
+training:
+  output_dir: "models"
+  num_train_epochs: 3
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2
+  learning_rate: 1e-4
+  weight_decay: 0.01
+  warmup_steps: 1000
+  logging_steps: 100
+  eval_steps: 1000
+  save_steps: 1000
+  save_total_limit: 3
+  evaluation_strategy: "steps"
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  report_to: "none"
+  seed: 42
+  fp16: true
+  dataloader_num_workers: 4
+  push_to_hub: false
