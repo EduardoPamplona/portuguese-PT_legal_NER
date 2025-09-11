@@ -1,7 +1,7 @@
 # Base NER Fine-tuning Configuration
 experiment_name: "pt_legal_ner_base"
 experiment_type: "ner_finetuning"
-description: "Base NER fine-tuning on Portuguese legal documents using RoBERTaLexPT"
+description: "Base NER fine-tuning on Portuguese legal documents using RoBERTaLexPT using CINTIL dataset"
 tags:
   - "ner"
   - "portuguese"
@@ -16,9 +16,9 @@ model:
   hidden_dropout: 0.1
 
 data:
-  train_file: "data/train.conll"
-  val_file: "data/val.conll"
-  test_file: "data/test.conll"
+  train_file: "data/conll/cintil/train.conll"
+  val_file: "data/conll/cintil/val.conll"
+  test_file: "data/conll/cintil/test.conll"
   max_length: 512
   preprocessing_num_workers: 4
 
