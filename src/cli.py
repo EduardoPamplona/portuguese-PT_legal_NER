@@ -110,11 +110,26 @@ def train_ner(config_path: str, resume_from_checkpoint: str = None):
             trainer=trainer, resume_from_checkpoint=resume_from_checkpoint
         )
 
+        # Log training results
+        if hasattr(train_result, "metrics"):
+            logger.info(f"Training completed!")
+            logger.info(f"Training loss: {train_result.training_loss:.4f}")
+            if "train_runtime" in train_result.metrics:
+                logger.info(
+                    f"Training time: {train_result.metrics['train_runtime']:.2f}s"
+                )
+
         # Evaluate on test set if available
         if "test" in datasets:
             test_result = training_manager.evaluate(
                 trainer=trainer, eval_dataset=datasets["test"], metric_key_prefix="test"
             )
+
+            # Log test results
+            logger.info(f"Test evaluation completed!")
+            for metric, value in test_result.items():
+                if isinstance(value, (int, float)):
+                    logger.info(f"  {metric}: {value:.4f}")
 
         # Save model
         model_path = ModelFactory.save_model(
