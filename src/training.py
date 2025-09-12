@@ -69,12 +69,12 @@ class CustomTrainer(Trainer):
         super().__init__(*args, **kwargs)
         self.experiment_tracker = experiment_tracker
 
-    def log(self, logs: Dict[str, float]) -> None:
-        """Override log method to add experiment tracking."""
-        super().log(logs)
+    # def log(self, logs: Dict[str, float]) -> None:
+    #     """Override log method to add experiment tracking."""
+    #     super().log(logs)
 
-        if self.experiment_tracker:
-            self.experiment_tracker.log_metrics(logs, step=self.state.global_step)
+    #     if self.experiment_tracker:
+    #         self.experiment_tracker.log_metrics(logs, step=self.state.global_step)
 
     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
         """Override evaluate to add detailed metrics."""

@@ -4,6 +4,8 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+import os
+import warnings
 
 try:
     from .config import ConfigManager, ExperimentConfig
@@ -82,7 +84,7 @@ def train_ner(config_path: str, resume_from_checkpoint: str = None):
             eval_steps=config.training.eval_steps,
             save_steps=config.training.save_steps,
             save_total_limit=config.training.save_total_limit,
-            evaluation_strategy=config.training.evaluation_strategy,
+            eval_strategy=config.training.evaluation_strategy,
             load_best_model_at_end=config.training.load_best_model_at_end,
             metric_for_best_model=config.training.metric_for_best_model,
             greater_is_better=config.training.greater_is_better,
@@ -205,7 +207,7 @@ def train_pretraining(config_path: str, resume_from_checkpoint: str = None):
             eval_steps=config.training.eval_steps,
             save_steps=config.training.save_steps,
             save_total_limit=config.training.save_total_limit,
-            evaluation_strategy=config.training.evaluation_strategy,
+            eval_strategy=config.training.evaluation_strategy,
             load_best_model_at_end=config.training.load_best_model_at_end,
             metric_for_best_model="eval_loss",
             greater_is_better=False,
@@ -330,6 +332,12 @@ def show_experiment(experiment_id: str):
 
 def main():
     """Main CLI entry point."""
+
+    # Suppress warnings for cleaner output
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.parallel")
+    warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+
     parser = argparse.ArgumentParser(
         description="Portuguese Legal NER Training Framework"
     )
