@@ -1,4 +1,21 @@
-"""Command-line interface for the Portuguese Legal NER training framework."""
+"""
+Command-line interface for the Portuguese Legal NER training framework.
+
+This module provides a comprehensive CLI for training and managing Portuguese
+Legal Named Entity Recognition models. It supports multiple training workflows
+including NER fine-tuning and domain-adaptive pretraining.
+
+Key features:
+- NER model training with configurable hyperparameters
+- Domain-adaptive pretraining for better legal domain understanding
+- Experiment tracking and management
+- Configuration file-based training setup
+- Resume training from checkpoints
+- Experiment listing and inspection
+
+The CLI serves as the primary entry point for users to interact with the
+training framework, providing a user-friendly interface for complex ML workflows.
+"""
 
 import argparse
 import logging
@@ -28,7 +45,31 @@ logger = logging.getLogger(__name__)
 
 
 def train_ner(config_path: str, resume_from_checkpoint: str = None):
-    """Train a NER model."""
+    """
+    Train a Named Entity Recognition model for Portuguese legal texts.
+    
+    Executes a complete NER training pipeline including data loading, model
+    initialization, training, evaluation, and experiment tracking. Supports
+    resuming from checkpoints and comprehensive result logging.
+    
+    Args:
+        config_path (str): Path to YAML configuration file containing all
+            training parameters, model settings, and data paths.
+        resume_from_checkpoint (str, optional): Path to checkpoint directory
+            to resume training from. If None, starts training from scratch.
+            
+    Side Effects:
+        - Creates experiment directory and tracking files
+        - Saves model checkpoints during training  
+        - Logs metrics and results to experiment tracker
+        - Prints training progress and final results
+        - May create sample data if none exists
+        
+    Raises:
+        ValueError: If no training data is available.
+        FileNotFoundError: If configuration file doesn't exist.
+        Various training-related exceptions from underlying components.
+    """
     # Load configuration
     config_manager = ConfigManager()
     config = config_manager.load_config(config_path)
@@ -155,7 +196,30 @@ def train_ner(config_path: str, resume_from_checkpoint: str = None):
 
 
 def train_pretraining(config_path: str, resume_from_checkpoint: str = None):
-    """Train a domain-adaptive pretraining model."""
+    """
+    Train a domain-adaptive pretraining model for Portuguese legal texts.
+    
+    Performs masked language model pretraining on domain-specific text to
+    adapt a base language model to Portuguese legal vocabulary and patterns.
+    This improves performance when subsequently fine-tuning on NER tasks.
+    
+    Args:
+        config_path (str): Path to YAML configuration file. Must include
+            pretraining_data field pointing to raw text files.
+        resume_from_checkpoint (str, optional): Path to checkpoint directory
+            to resume pretraining from. If None, starts from base model.
+            
+    Side Effects:
+        - Creates experiment directory and tracking files
+        - Saves model checkpoints during pretraining
+        - Logs pretraining metrics and progress
+        - Saves final domain-adapted model for later NER fine-tuning
+        
+    Raises:
+        ValueError: If pretraining data is not specified in config.
+        FileNotFoundError: If configuration or data files don't exist.
+        Various training-related exceptions from underlying components.
+    """
     from transformers import DataCollatorForLanguageModeling, Trainer
 
     # Load configuration
@@ -256,7 +320,18 @@ def train_pretraining(config_path: str, resume_from_checkpoint: str = None):
 
 
 def list_experiments():
-    """List all experiments."""
+    """
+    List all available experiments with summary information.
+    
+    Displays a formatted table of all experiments showing key information
+    like experiment ID, name, type, status, and duration. Helps users
+    track and compare different experimental runs.
+    
+    Side Effects:
+        - Prints formatted experiment list to console
+        - Shows "No experiments found" if none exist
+        - Displays experiment metadata in readable format
+    """
     tracker = ExperimentTracker()
     experiments = tracker.list_experiments()
 
@@ -291,7 +366,22 @@ def list_experiments():
 
 
 def show_experiment(experiment_id: str):
-    """Show details of a specific experiment."""
+    """
+    Display detailed information about a specific experiment.
+    
+    Shows comprehensive details about an experiment including configuration,
+    training results, evaluation metrics, and file artifacts. Useful for
+    analyzing and comparing experimental results.
+    
+    Args:
+        experiment_id (str): Unique identifier of the experiment to display.
+            Should be in format "{experiment_name}_{timestamp}".
+            
+    Side Effects:
+        - Prints detailed experiment information to console
+        - Shows "Experiment not found" message if ID doesn't exist
+        - Displays training results, evaluation metrics, and artifact paths
+    """
     tracker = ExperimentTracker()
     exp = tracker.get_experiment(experiment_id)
 
@@ -331,7 +421,24 @@ def show_experiment(experiment_id: str):
 
 
 def main():
-    """Main CLI entry point."""
+    """
+    Main CLI entry point and command dispatcher.
+    
+    Parses command-line arguments and dispatches to appropriate functions
+    for training, listing experiments, or showing experiment details.
+    Provides a user-friendly interface to the training framework.
+    
+    The CLI supports the following commands:
+    - train: Train a NER model using a configuration file
+    - pretrain: Perform domain-adaptive pretraining  
+    - list: List all available experiments
+    - show: Show detailed information about a specific experiment
+    
+    Side Effects:
+        - Sets environment variables to suppress verbose output
+        - Configures warning filters for cleaner console output
+        - Prints help information if no valid command provided
+    """
 
     # Suppress warnings for cleaner output
     os.environ["TOKENIZERS_PARALLELISM"] = "false"

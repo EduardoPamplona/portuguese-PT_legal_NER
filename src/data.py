@@ -1,4 +1,17 @@
-"""Data loading and preprocessing utilities."""
+"""
+Data loading and preprocessing utilities for Portuguese Legal NER.
+
+This module provides comprehensive data handling capabilities including:
+- Loading and parsing CoNLL format files
+- Tokenization and label alignment for transformer models
+- Dataset creation and preprocessing for training/evaluation
+- Support for both NER fine-tuning and domain pretraining workflows
+- Utilities for creating sample data for testing purposes
+
+The module handles the complex task of aligning NER labels with subword
+tokenization required by modern transformer models, ensuring proper
+label propagation and handling of special tokens.
+"""
 
 import os
 import logging
@@ -83,7 +96,26 @@ def read_conll_file(file_path: str) -> Tuple[List[List[str]], List[List[str]]]:
 
 
 def create_sample_data():
-    """Create sample CoNLL data for testing."""
+    """
+    Create sample CoNLL data for testing and development.
+    
+    Generates synthetic Portuguese legal text data with NER annotations
+    in CoNLL format. Creates train, validation, and test splits with
+    representative examples of different entity types commonly found
+    in Portuguese legal documents.
+    
+    The sample data includes entities like:
+    - PER (Person names)
+    - LOC (Locations) 
+    - DAT (Dates)
+    - IDP (Identity documents/numbers)
+    
+    Returns:
+        None: Files are created in the 'data/' directory.
+        
+    Side Effects:
+        Creates three files: data/train.conll, data/val.conll, data/test.conll
+    """
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
 
@@ -123,7 +155,26 @@ def create_sample_data():
 
 def tokenize_and_align_labels(examples, tokenizer, label_to_id, max_length=512):
     """
-    Tokenize input and align labels with subword tokens.
+    Tokenize input text and align NER labels with subword tokens.
+    
+    This function handles the complex task of aligning word-level NER labels
+    with subword tokens produced by modern transformer tokenizers. It ensures
+    that labels are properly propagated to subword pieces while maintaining
+    the original labeling scheme.
+    
+    Args:
+        examples (dict): Batch of examples containing 'tokens' and 'labels' keys.
+            - 'tokens': List of lists, where each inner list contains word tokens
+            - 'labels': List of lists, where each inner list contains corresponding labels
+        tokenizer (AutoTokenizer): Pre-trained tokenizer for subword tokenization.
+        label_to_id (dict): Mapping from label names to integer IDs.
+        max_length (int, optional): Maximum sequence length. Defaults to 512.
+        
+    Returns:
+        dict: Dictionary containing tokenized inputs with aligned labels:
+            - 'input_ids': Token IDs for model input
+            - 'attention_mask': Attention mask for padding tokens
+            - 'labels': Aligned label IDs (-100 for special/subword tokens)
     """
     tokenized_inputs = tokenizer(
         examples["tokens"],
@@ -156,9 +207,27 @@ def tokenize_and_align_labels(examples, tokenizer, label_to_id, max_length=512):
 
 
 class DataLoader:
-    """Data loader for NER datasets."""
+    """
+    Data loader for NER datasets and domain pretraining.
+    
+    This class handles loading and preprocessing of data for both Named Entity
+    Recognition fine-tuning and domain-adaptive pretraining tasks. It manages
+    tokenization, label alignment, and dataset creation for transformer models.
+    
+    Attributes:
+        tokenizer (AutoTokenizer): Pre-trained tokenizer for text processing.
+        max_length (int): Maximum sequence length for tokenization.
+    """
 
     def __init__(self, tokenizer_name: str, max_length: int = 512):
+        """
+        Initialize the data loader with a specified tokenizer.
+        
+        Args:
+            tokenizer_name (str): Name or path of the pre-trained tokenizer.
+            max_length (int, optional): Maximum sequence length for tokenization.
+                Defaults to 512.
+        """
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_name, add_prefix_space=True
         )
@@ -168,15 +237,24 @@ class DataLoader:
         self, train_file: str, val_file: str, test_file: str
     ) -> DatasetDict:
         """
-        Load and tokenize datasets from CoNLL files.
-
+        Load and preprocess NER datasets from CoNLL format files.
+        
+        Reads CoNLL format files, tokenizes the text, and aligns NER labels
+        with subword tokens. Creates train, validation, and test datasets
+        ready for model training and evaluation.
+        
         Args:
-            train_file: Path to training data
-            val_file: Path to validation data
-            test_file: Path to test data
-
+            train_file (str): Path to training data file in CoNLL format.
+            val_file (str): Path to validation data file in CoNLL format.
+            test_file (str): Path to test data file in CoNLL format.
+            
         Returns:
-            DatasetDict with train/validation/test splits
+            DatasetDict: Dictionary containing train/validation/test datasets.
+                Each dataset has 'input_ids', 'attention_mask', and 'labels' fields.
+                
+        Side Effects:
+            - Logs information about loaded datasets
+            - Creates sample data if no files are found
         """
         datasets = {}
 
@@ -219,12 +297,25 @@ class DataLoader:
     def load_pretraining_data(self, data_path: str) -> Dataset:
         """
         Load raw text data for domain-adaptive pretraining.
-
+        
+        Loads plain text data from files or directories for masked language
+        modeling pretraining. Supports both single files and directories
+        containing multiple text files.
+        
         Args:
-            data_path: Path to raw text file or directory
-
+            data_path (str): Path to raw text file (.txt) or directory containing
+                text files. If directory, all .txt files will be processed.
+                
         Returns:
-            Dataset with text field
+            Dataset: HuggingFace Dataset object with tokenized text ready for
+                masked language modeling. Contains 'input_ids', 'attention_mask'
+                and 'token_type_ids' fields.
+                
+        Raises:
+            FileNotFoundError: If the specified path doesn't exist.
+            
+        Side Effects:
+            Logs information about the number of loaded texts.
         """
         texts = []
 
