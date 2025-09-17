@@ -1,4 +1,11 @@
-"""Configuration management for PT Legal NER training."""
+"""
+Configuration management for the Portuguese Legal NER training framework.
+
+This module provides comprehensive configuration management through dataclasses
+for model, data, training, and experiment settings. The ConfigManager class
+handles loading/saving configurations from/to YAML files and provides utilities
+for managing experiment configurations.
+"""
 
 import os
 import yaml
@@ -9,7 +16,20 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ModelConfig:
-    """Configuration for model settings."""
+    """
+    Configuration for model settings.
+    
+    This dataclass encapsulates all model-related parameters including
+    the base model name, number of classification labels, and dropout rates
+    for different components of the transformer architecture.
+    
+    Attributes:
+        name (str): Hugging Face model name or local path to model.
+        num_labels (int): Number of classification labels (default: 19 for Portuguese legal NER).
+        dropout (float): General dropout rate for the model.
+        attention_dropout (float): Dropout rate for attention layers.
+        hidden_dropout (float): Dropout rate for hidden layers.
+    """
 
     name: str = "eduagarcia/RoBERTaLexPT-base"
     num_labels: int = 19  # 9 entities * 2 (B-, I-) + O
@@ -20,7 +40,19 @@ class ModelConfig:
 
 @dataclass
 class DataConfig:
-    """Configuration for data settings."""
+    """
+    Configuration for data loading and preprocessing settings.
+    
+    This dataclass contains all parameters related to data loading,
+    file paths, and preprocessing options for the NER training pipeline.
+    
+    Attributes:
+        train_file (str): Path to training data file in CoNLL format.
+        val_file (str): Path to validation data file in CoNLL format.
+        test_file (str): Path to test data file in CoNLL format.
+        max_length (int): Maximum sequence length for tokenization.
+        preprocessing_num_workers (int): Number of workers for data preprocessing.
+    """
 
     train_file: str = "data/train.conll"
     val_file: str = "data/val.conll"
@@ -31,7 +63,35 @@ class DataConfig:
 
 @dataclass
 class TrainingConfig:
-    """Configuration for training settings."""
+    """
+    Configuration for training hyperparameters and settings.
+    
+    This dataclass encompasses all training-related parameters including
+    learning rates, batch sizes, evaluation strategies, and hardware options.
+    
+    Attributes:
+        output_dir (str): Directory to save model checkpoints and outputs.
+        num_train_epochs (int): Number of training epochs.
+        per_device_train_batch_size (int): Batch size per device during training.
+        per_device_eval_batch_size (int): Batch size per device during evaluation.
+        gradient_accumulation_steps (int): Number of steps to accumulate gradients.
+        learning_rate (float): Learning rate for the optimizer.
+        weight_decay (float): Weight decay coefficient for regularization.
+        warmup_steps (int): Number of warmup steps for learning rate scheduler.
+        logging_steps (int): Frequency of logging training metrics.
+        eval_steps (int): Frequency of evaluation during training.
+        save_steps (int): Frequency of saving model checkpoints.
+        save_total_limit (int): Maximum number of checkpoints to keep.
+        evaluation_strategy (str): Strategy for evaluation ("steps" or "epoch").
+        load_best_model_at_end (bool): Whether to load best model at training end.
+        metric_for_best_model (str): Metric to use for best model selection.
+        greater_is_better (bool): Whether higher metric values are better.
+        report_to (str): Logging platform ("none", "wandb", "tensorboard").
+        seed (int): Random seed for reproducibility.
+        fp16 (bool): Whether to use 16-bit floating point precision.
+        dataloader_num_workers (int): Number of workers for data loading.
+        push_to_hub (bool): Whether to push model to Hugging Face Hub.
+    """
 
     output_dir: str = "models"
     num_train_epochs: int = 3
@@ -58,7 +118,24 @@ class TrainingConfig:
 
 @dataclass
 class ExperimentConfig:
-    """Main experiment configuration."""
+    """
+    Main experiment configuration that aggregates all sub-configurations.
+    
+    This dataclass serves as the root configuration object that contains
+    all experiment metadata and references to model, data, and training
+    configurations.
+    
+    Attributes:
+        experiment_name (str): Unique name for the experiment.
+        experiment_type (str): Type of experiment ("ner_finetuning" or "domain_pretraining").
+        description (str): Human-readable description of the experiment.
+        tags (list): List of tags for experiment categorization.
+        model (ModelConfig): Model configuration settings.
+        data (DataConfig): Data loading and preprocessing settings.
+        training (TrainingConfig): Training hyperparameters and settings.
+        pretraining_data (Optional[str]): Path to pretraining data (for domain adaptation).
+        pretrained_model_path (Optional[str]): Path to domain-adapted model checkpoint.
+    """
 
     experiment_name: str = "pt_legal_ner_base"
     experiment_type: str = "ner_finetuning"  # or "domain_pretraining"
@@ -75,14 +152,43 @@ class ExperimentConfig:
 
 
 class ConfigManager:
-    """Configuration manager for experiments."""
+    """
+    Configuration manager for experiment configurations.
+    
+    This class provides utilities for loading, saving, and managing
+    experiment configurations from/to YAML files. It handles the conversion
+    between YAML format and Python dataclass objects.
+    """
 
     def __init__(self, config_dir: str = "experiments/configs"):
+        """
+        Initialize the configuration manager.
+        
+        Args:
+            config_dir (str): Directory to store configuration files.
+                Defaults to "experiments/configs".
+        """
         self.config_dir = Path(config_dir)
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def load_config(self, config_path: str) -> ExperimentConfig:
-        """Load configuration from YAML file."""
+        """
+        Load configuration from a YAML file.
+        
+        Reads a YAML configuration file and converts it to an ExperimentConfig
+        object with nested dataclass instances for model, data, and training
+        configurations.
+        
+        Args:
+            config_path (str): Path to the YAML configuration file.
+            
+        Returns:
+            ExperimentConfig: Complete experiment configuration object.
+            
+        Raises:
+            FileNotFoundError: If the configuration file doesn't exist.
+            yaml.YAMLError: If the YAML file is malformed.
+        """
         with open(config_path, "r") as f:
             config_dict = yaml.safe_load(f)
 
@@ -97,7 +203,19 @@ class ConfigManager:
         return ExperimentConfig(**config_dict)
 
     def save_config(self, config: ExperimentConfig, config_path: str):
-        """Save configuration to YAML file."""
+        """
+        Save configuration to a YAML file.
+        
+        Converts an ExperimentConfig object to a dictionary format and
+        saves it as a YAML file with proper formatting and indentation.
+        
+        Args:
+            config (ExperimentConfig): Complete experiment configuration to save.
+            config_path (str): Path where the YAML file should be saved.
+            
+        Raises:
+            OSError: If the file cannot be written to the specified path.
+        """
         config_dict = {
             "experiment_name": config.experiment_name,
             "experiment_type": config.experiment_type,
@@ -151,5 +269,13 @@ class ConfigManager:
             yaml.dump(config_dict, f, default_flow_style=False, indent=2)
 
     def list_configs(self) -> list:
-        """List all available configuration files."""
+        """
+        List all available configuration files.
+        
+        Scans the configuration directory for YAML files and returns
+        a list of Path objects pointing to configuration files.
+        
+        Returns:
+            list: List of Path objects for available YAML configuration files.
+        """
         return list(self.config_dir.glob("*.yaml"))

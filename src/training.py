@@ -1,4 +1,23 @@
-"""Training utilities and custom trainer classes."""
+"""
+Training utilities and custom trainer classes for Portuguese Legal NER.
+
+This module provides comprehensive training management for Named Entity
+Recognition models, including custom trainer classes with enhanced logging,
+evaluation capabilities, and experiment tracking integration.
+
+Key features:
+- Custom trainer with experiment tracking integration
+- Comprehensive metrics computation for NER evaluation
+- Detailed evaluation reports with classification metrics
+- Confusion matrix generation and visualization
+- Training lifecycle management
+- Early stopping and checkpoint handling
+- Integration with HuggingFace Transformers training pipeline
+
+The module extends the standard HuggingFace training workflow with additional
+monitoring, logging, and evaluation capabilities specifically designed for
+NER tasks in the Portuguese legal domain.
+"""
 
 import logging
 import os
@@ -63,21 +82,49 @@ def compute_metrics(eval_pred):
 
 
 class CustomTrainer(Trainer):
-    """Custom trainer with additional logging and monitoring."""
+    """
+    Enhanced trainer with experiment tracking and detailed evaluation.
+    
+    Extends HuggingFace Trainer with additional capabilities for experiment
+    tracking, detailed evaluation reporting, and enhanced monitoring of
+    training progress specifically for NER tasks.
+    
+    Attributes:
+        experiment_tracker: Optional experiment tracker for logging metrics and results.
+    """
 
     def __init__(self, *args, experiment_tracker=None, **kwargs):
+        """
+        Initialize the custom trainer.
+        
+        Args:
+            *args: Positional arguments passed to parent Trainer class.
+            experiment_tracker: Optional ExperimentTracker instance for logging.
+            **kwargs: Keyword arguments passed to parent Trainer class.
+        """
         super().__init__(*args, **kwargs)
         self.experiment_tracker = experiment_tracker
 
-    # def log(self, logs: Dict[str, float]) -> None:
-    #     """Override log method to add experiment tracking."""
-    #     super().log(logs)
-
-    #     if self.experiment_tracker:
-    #         self.experiment_tracker.log_metrics(logs, step=self.state.global_step)
-
     def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval"):
-        """Override evaluate to add detailed metrics."""
+        """
+        Enhanced evaluation with detailed reporting and metrics logging.
+        
+        Performs standard evaluation and additionally generates detailed
+        classification reports and confusion matrices when experiment
+        tracker is available.
+        
+        Args:
+            eval_dataset: Dataset to evaluate on. Uses self.eval_dataset if None.
+            ignore_keys: Keys to ignore in evaluation results.
+            metric_key_prefix (str): Prefix for metric names in results.
+            
+        Returns:
+            dict: Evaluation results dictionary with metrics.
+            
+        Side Effects:
+            - Generates detailed evaluation report if tracker available
+            - Logs classification report and confusion matrix
+        """
         eval_result = super().evaluate(eval_dataset, ignore_keys, metric_key_prefix)
 
         if self.experiment_tracker and hasattr(self, "eval_dataset"):
@@ -87,7 +134,18 @@ class CustomTrainer(Trainer):
         return eval_result
 
     def _generate_detailed_evaluation_report(self):
-        """Generate detailed evaluation report with confusion matrix."""
+        """
+        Generate comprehensive evaluation report with classification metrics.
+        
+        Creates detailed classification report and confusion matrix for
+        NER evaluation, providing per-class performance metrics and
+        visualization of prediction patterns.
+        
+        Side Effects:
+            - Logs classification report to experiment tracker
+            - Generates and logs confusion matrix visualization
+            - Logs warning if report generation fails
+        """
         try:
             eval_dataloader = self.get_eval_dataloader()
             predictions = self.predict(self.eval_dataset)
@@ -126,9 +184,25 @@ class CustomTrainer(Trainer):
 
 
 class TrainingManager:
-    """Manager for training experiments."""
+    """
+    Manager for orchestrating training experiments and workflows.
+    
+    Provides high-level management of the training process including trainer
+    creation, training execution, and evaluation coordination. Integrates
+    with experiment tracking and handles training lifecycle management.
+    
+    Attributes:
+        experiment_tracker: Optional experiment tracker for logging and monitoring.
+    """
 
     def __init__(self, experiment_tracker=None):
+        """
+        Initialize the training manager.
+        
+        Args:
+            experiment_tracker: Optional ExperimentTracker instance for logging
+                training progress and results.
+        """
         self.experiment_tracker = experiment_tracker
 
     def create_trainer(
@@ -143,20 +217,25 @@ class TrainingManager:
         early_stopping_patience: int = 3,
     ) -> CustomTrainer:
         """
-        Create a trainer instance.
-
+        Create and configure a trainer instance for model training.
+        
+        Sets up a CustomTrainer with all necessary components including
+        model, datasets, training arguments, and optional early stopping.
+        
         Args:
-            model: The model to train
-            tokenizer: The tokenizer
-            train_dataset: Training dataset
-            eval_dataset: Evaluation dataset
-            data_collator: Data collator
-            training_args: Training arguments
-            compute_metrics_fn: Function to compute metrics
-            early_stopping_patience: Patience for early stopping
-
+            model: The transformer model to train (AutoModelForTokenClassification).
+            tokenizer: Tokenizer instance matching the model.
+            train_dataset: HuggingFace Dataset for training.
+            eval_dataset: HuggingFace Dataset for evaluation.
+            data_collator: Data collator for batching (DataCollatorForTokenClassification).
+            training_args (TrainingArguments): Complete training configuration.
+            compute_metrics_fn (callable, optional): Function to compute evaluation metrics.
+                Defaults to the standard compute_metrics function.
+            early_stopping_patience (int, optional): Number of evaluations with no
+                improvement after which training stops. Defaults to 3.
+                
         Returns:
-            Trainer instance
+            CustomTrainer: Configured trainer instance ready for training.
         """
         callbacks = []
         if early_stopping_patience > 0:
@@ -182,14 +261,30 @@ class TrainingManager:
         self, trainer: CustomTrainer, resume_from_checkpoint: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Run training.
-
+        Execute the training process with comprehensive monitoring.
+        
+        Runs model training with automatic progress tracking, error handling,
+        and result logging. Supports resuming from checkpoints and provides
+        detailed training statistics.
+        
         Args:
-            trainer: The trainer instance
-            resume_from_checkpoint: Path to checkpoint to resume from
-
+            trainer (CustomTrainer): Configured trainer instance ready for training.
+            resume_from_checkpoint (Optional[str]): Path to checkpoint directory
+                to resume training from. If None, starts training from scratch.
+                
         Returns:
-            Training results
+            Dict[str, Any]: Training results containing loss curves, timing metrics,
+                and other training statistics from the HuggingFace training loop.
+                
+        Side Effects:
+            - Updates experiment tracker with training progress
+            - Logs training start/end events
+            - Logs detailed training results and metrics
+            - Handles and logs training errors
+            - Ensures training end is marked even if training fails
+            
+        Raises:
+            Exception: Re-raises any training exceptions after logging them.
         """
         logger.info("Starting training...")
 
@@ -220,15 +315,27 @@ class TrainingManager:
         self, trainer: CustomTrainer, eval_dataset=None, metric_key_prefix="eval"
     ) -> Dict[str, Any]:
         """
-        Run evaluation.
-
+        Perform comprehensive model evaluation with detailed reporting.
+        
+        Evaluates the trained model on the specified dataset and generates
+        detailed evaluation metrics including per-class performance statistics.
+        
         Args:
-            trainer: The trainer instance
-            eval_dataset: Evaluation dataset (optional)
-            metric_key_prefix: Prefix for metric names
-
+            trainer (CustomTrainer): Trained model instance ready for evaluation.
+            eval_dataset: Dataset to evaluate on. If None, uses trainer's eval_dataset.
+            metric_key_prefix (str, optional): Prefix for metric names in results.
+                Defaults to "eval".
+                
         Returns:
-            Evaluation results
+            Dict[str, Any]: Comprehensive evaluation results including:
+                - Standard metrics (loss, accuracy, precision, recall, F1)
+                - Per-class performance statistics
+                - Timing and throughput metrics
+                
+        Side Effects:
+            - Logs evaluation progress and completion
+            - Updates experiment tracker with evaluation results
+            - Generates detailed classification reports if tracker available
         """
         logger.info("Starting evaluation...")
 

@@ -1,4 +1,25 @@
-"""Experiment tracking and management."""
+"""
+Experiment tracking and management for Portuguese Legal NER training.
+
+This module provides comprehensive experiment tracking capabilities for machine
+learning experiments, including metrics logging, artifact management, and 
+experiment organization. The ExperimentTracker class serves as the central
+component for managing the lifecycle of training experiments.
+
+Key features:
+- Experiment lifecycle management (start, track, end)
+- Metrics logging with timestamped entries
+- Training and evaluation results tracking
+- Classification reports and confusion matrix visualization
+- Model artifact management
+- Experiment listing and retrieval
+- Automatic summary generation
+- Error logging and debugging support
+
+The tracker creates structured directories for each experiment, maintaining
+metadata, metrics, and artifacts in an organized format for easy analysis
+and comparison of different experimental runs.
+"""
 
 import os
 import json
@@ -14,9 +35,28 @@ logger = logging.getLogger(__name__)
 
 
 class ExperimentTracker:
-    """Track experiments and results."""
+    """
+    Comprehensive experiment tracking and management system.
+    
+    This class provides a complete solution for tracking machine learning experiments
+    including metrics logging, artifact management, and experiment organization.
+    It maintains structured directories for each experiment with proper metadata
+    and result storage.
+    
+    Attributes:
+        experiments_dir (Path): Base directory for storing all experiments.
+        current_experiment (Optional[dict]): Metadata for the currently active experiment.
+        experiment_path (Optional[Path]): Path to the current experiment directory.
+    """
 
     def __init__(self, experiments_dir: str = "experiments/runs"):
+        """
+        Initialize the experiment tracker.
+        
+        Args:
+            experiments_dir (str, optional): Directory to store experiment data.
+                Defaults to "experiments/runs".
+        """
         self.experiments_dir = Path(experiments_dir)
         self.experiments_dir.mkdir(parents=True, exist_ok=True)
         self.current_experiment = None
@@ -29,12 +69,24 @@ class ExperimentTracker:
         experiment_type: str = "ner_finetuning",
     ):
         """
-        Start a new experiment.
-
+        Start a new experiment and initialize tracking.
+        
+        Creates a new experiment with a unique timestamp-based identifier,
+        sets up the directory structure, and initializes experiment metadata.
+        
         Args:
-            experiment_name: Name of the experiment
-            config: Experiment configuration
-            experiment_type: Type of experiment
+            experiment_name (str): Human-readable name for the experiment.
+            config (Dict[str, Any]): Complete experiment configuration dictionary.
+            experiment_type (str, optional): Type of experiment. Defaults to "ner_finetuning".
+                Valid types: "ner_finetuning", "domain_pretraining".
+                
+        Returns:
+            str: Unique experiment identifier in format "{name}_{timestamp}".
+            
+        Side Effects:
+            - Creates experiment directory
+            - Initializes experiment metadata
+            - Logs experiment start information
         """
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         experiment_id = f"{experiment_name}_{timestamp}"
@@ -61,7 +113,23 @@ class ExperimentTracker:
         return experiment_id
 
     def log_metrics(self, metrics: Dict[str, float], step: int):
-        """Log metrics for the current step."""
+        """
+        Log metrics for the current training step.
+        
+        Records training/evaluation metrics with timestamps for tracking
+        model performance over time. Metrics are stored both in memory
+        and persisted to a JSONL file for later analysis.
+        
+        Args:
+            metrics (Dict[str, float]): Dictionary of metric names and values
+                (e.g., {"loss": 0.5, "accuracy": 0.85, "f1": 0.90}).
+            step (int): Current training step number.
+            
+        Side Effects:
+            - Appends metrics to current experiment metadata
+            - Writes metrics entry to metrics.jsonl file
+            - Logs warning if no active experiment
+        """
         if not self.current_experiment:
             logger.warning("No active experiment to log metrics to")
             return
@@ -80,7 +148,21 @@ class ExperimentTracker:
             f.write(json.dumps(metric_entry) + "\n")
 
     def log_training_results(self, train_result):
-        """Log training results."""
+        """
+        Log comprehensive training results and statistics.
+        
+        Extracts and stores key training metrics from the training results
+        object, including loss, throughput metrics, and timing information.
+        
+        Args:
+            train_result: Training result object from HuggingFace Trainer.train().
+                Expected to contain training_loss and metrics dictionary with
+                runtime statistics.
+                
+        Side Effects:
+            - Updates current experiment metadata with training results
+            - Saves updated metadata to disk
+        """
         if not self.current_experiment:
             return
 
@@ -98,7 +180,20 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def log_evaluation_results(self, eval_result: Dict[str, Any]):
-        """Log evaluation results."""
+        """
+        Log evaluation results and metrics.
+        
+        Stores evaluation metrics and results from model evaluation,
+        typically including validation/test performance metrics.
+        
+        Args:
+            eval_result (Dict[str, Any]): Dictionary containing evaluation metrics
+                and results (e.g., {"eval_loss": 0.3, "eval_f1": 0.92, "eval_accuracy": 0.89}).
+                
+        Side Effects:
+            - Updates current experiment metadata with evaluation results
+            - Saves updated metadata to disk
+        """
         if not self.current_experiment:
             return
 
@@ -106,7 +201,22 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def log_classification_report(self, report: Dict[str, Any]):
-        """Log detailed classification report."""
+        """
+        Log detailed classification report for NER evaluation.
+        
+        Saves a comprehensive classification report containing per-class
+        precision, recall, F1-score, and support metrics for each entity type.
+        
+        Args:
+            report (Dict[str, Any]): Classification report dictionary from 
+                sklearn.metrics.classification_report with output_dict=True.
+                Contains per-class metrics and aggregate statistics.
+                
+        Side Effects:
+            - Saves classification report as JSON file
+            - Adds report filename to experiment artifacts list
+            - Updates experiment metadata
+        """
         if not self.current_experiment:
             return
 
@@ -118,7 +228,25 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def log_confusion_matrix(self, cm: np.ndarray, labels: List[str]):
-        """Log confusion matrix visualization."""
+        """
+        Log and visualize confusion matrix for model evaluation.
+        
+        Creates a heatmap visualization of the confusion matrix showing
+        prediction accuracy across different entity types and saves it
+        as a high-resolution PNG image.
+        
+        Args:
+            cm (np.ndarray): 2D confusion matrix array from sklearn.metrics.confusion_matrix.
+                Shape should be (n_classes, n_classes).
+            labels (List[str]): List of class label names for axis labeling.
+                Should correspond to the order of classes in the confusion matrix.
+                
+        Side Effects:
+            - Creates and saves confusion matrix visualization as PNG
+            - Adds confusion matrix filename to experiment artifacts
+            - Closes matplotlib figure to free memory
+            - Updates experiment metadata
+        """
         if not self.current_experiment:
             return
 
@@ -144,7 +272,22 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def log_model_artifact(self, model_path: str):
-        """Log model artifact path."""
+        """
+        Log the path to saved model artifacts.
+        
+        Records the location where the trained model has been saved,
+        making it easy to locate and load the model for inference or
+        further experimentation.
+        
+        Args:
+            model_path (str): Absolute path to the saved model directory.
+                Should contain model weights, configuration, and tokenizer files.
+                
+        Side Effects:
+            - Updates experiment metadata with model path
+            - Adds model reference to artifacts list
+            - Saves updated metadata
+        """
         if not self.current_experiment:
             return
 
@@ -153,7 +296,21 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def log_error(self, error_msg: str):
-        """Log an error."""
+        """
+        Log error information for failed experiments.
+        
+        Records error messages when experiments fail, helping with
+        debugging and tracking experiment success rates.
+        
+        Args:
+            error_msg (str): Detailed error message describing what went wrong.
+                Should include relevant stack trace or diagnostic information.
+                
+        Side Effects:
+            - Updates experiment status to "failed"
+            - Records error message in experiment metadata
+            - Saves updated metadata for post-mortem analysis
+        """
         if not self.current_experiment:
             return
 
@@ -162,7 +319,16 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def start_training(self):
-        """Mark training start."""
+        """
+        Mark the beginning of the training phase.
+        
+        Records the timestamp when model training begins, allowing
+        for accurate tracking of training duration and phases.
+        
+        Side Effects:
+            - Records training start timestamp in experiment metadata
+            - Saves updated metadata to disk
+        """
         if not self.current_experiment:
             return
 
@@ -172,7 +338,17 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def end_training(self):
-        """Mark training end."""
+        """
+        Mark the completion of the training phase.
+        
+        Records when training finishes and updates the experiment status
+        to completed, enabling duration calculations and status tracking.
+        
+        Side Effects:
+            - Records training end timestamp in experiment metadata
+            - Updates experiment status to "completed"
+            - Saves updated metadata to disk
+        """
         if not self.current_experiment:
             return
 
@@ -183,7 +359,20 @@ class ExperimentTracker:
         self._save_experiment_metadata()
 
     def end_experiment(self):
-        """End the current experiment."""
+        """
+        Finalize the current experiment and generate summary.
+        
+        Marks the experiment as complete, generates a comprehensive summary
+        report, and performs final cleanup. This should be called when
+        all experiment activities are finished.
+        
+        Side Effects:
+            - Records experiment end timestamp
+            - Updates status to "completed" if still running
+            - Generates and saves experiment summary
+            - Saves final metadata to disk
+            - Resets current experiment reference
+        """
         if not self.current_experiment:
             return
 
@@ -202,7 +391,16 @@ class ExperimentTracker:
         self.experiment_path = None
 
     def _save_experiment_metadata(self):
-        """Save experiment metadata to file."""
+        """
+        Save current experiment metadata to JSON file.
+        
+        Persists the complete experiment metadata to a JSON file in the
+        experiment directory for later retrieval and analysis.
+        
+        Side Effects:
+            - Writes experiment.json file to experiment directory
+            - Uses string conversion for non-serializable objects
+        """
         if not self.experiment_path:
             return
 
@@ -211,7 +409,18 @@ class ExperimentTracker:
             json.dump(self.current_experiment, f, indent=2, default=str)
 
     def _generate_experiment_summary(self):
-        """Generate a summary report for the experiment."""
+        """
+        Generate a comprehensive summary report for the experiment.
+        
+        Creates a human-readable summary of the experiment including
+        key metrics, duration, status, and results. Saves both as JSON
+        and prints to console for immediate review.
+        
+        Side Effects:
+            - Creates summary.json file with key experiment metrics
+            - Prints formatted summary to console
+            - Extracts and formats training and evaluation results
+        """
         if not self.current_experiment or not self.experiment_path:
             return
 
@@ -257,7 +466,16 @@ class ExperimentTracker:
         print("=" * 50)
 
     def _calculate_duration(self) -> str:
-        """Calculate experiment duration."""
+        """
+        Calculate the duration of the current experiment.
+        
+        Computes the time elapsed between experiment start and end (or current time
+        if still running). Returns a human-readable duration string.
+        
+        Returns:
+            str: Duration in format "HH:MM:SS" or "Unknown" if timing data is missing.
+                Microseconds are stripped for cleaner display.
+        """
         if not self.current_experiment:
             return "Unknown"
 
@@ -278,7 +496,22 @@ class ExperimentTracker:
         return str(duration).split(".")[0]  # Remove microseconds
 
     def list_experiments(self) -> List[Dict[str, Any]]:
-        """List all experiments."""
+        """
+        List all available experiments with their metadata.
+        
+        Scans the experiments directory for all experiment folders and
+        loads their metadata. Returns experiments sorted by start time
+        with most recent first.
+        
+        Returns:
+            List[Dict[str, Any]]: List of experiment metadata dictionaries.
+                Each dictionary contains experiment configuration, results,
+                and status information. Empty list if no experiments found.
+                
+        Side Effects:
+            - Logs warnings for experiments that cannot be loaded
+            - Ignores malformed or corrupted experiment directories
+        """
         experiments = []
 
         for exp_dir in self.experiments_dir.iterdir():
@@ -298,7 +531,20 @@ class ExperimentTracker:
         return experiments
 
     def get_experiment(self, experiment_id: str) -> Optional[Dict[str, Any]]:
-        """Get a specific experiment by ID."""
+        """
+        Retrieve a specific experiment by its unique identifier.
+        
+        Searches through all available experiments to find one matching
+        the provided experiment ID.
+        
+        Args:
+            experiment_id (str): Unique experiment identifier in format
+                "{experiment_name}_{timestamp}".
+                
+        Returns:
+            Optional[Dict[str, Any]]: Experiment metadata dictionary if found,
+                None if no experiment with the given ID exists.
+        """
         experiments = self.list_experiments()
         for exp in experiments:
             if exp["experiment_id"] == experiment_id:
