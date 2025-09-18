@@ -25,17 +25,19 @@ import os
 import warnings
 
 try:
-    from .config import ConfigManager, ExperimentConfig
+    from .config import ConfigManager, ExperimentConfig, InferenceExperimentConfig
     from .data import DataLoader
     from .models import ModelFactory
     from .training import TrainingManager, compute_metrics
     from .tracking import ExperimentTracker
+    from .inference import InferenceEngine, load_inference_engine
 except ImportError:
-    from config import ConfigManager, ExperimentConfig
+    from config import ConfigManager, ExperimentConfig, InferenceExperimentConfig
     from data import DataLoader
     from models import ModelFactory
     from training import TrainingManager, compute_metrics
     from tracking import ExperimentTracker
+    from inference import InferenceEngine, load_inference_engine
 from transformers import TrainingArguments, set_seed
 
 logging.basicConfig(
@@ -47,24 +49,24 @@ logger = logging.getLogger(__name__)
 def train_ner(config_path: str, resume_from_checkpoint: str = None):
     """
     Train a Named Entity Recognition model for Portuguese legal texts.
-    
+
     Executes a complete NER training pipeline including data loading, model
     initialization, training, evaluation, and experiment tracking. Supports
     resuming from checkpoints and comprehensive result logging.
-    
+
     Args:
         config_path (str): Path to YAML configuration file containing all
             training parameters, model settings, and data paths.
         resume_from_checkpoint (str, optional): Path to checkpoint directory
             to resume training from. If None, starts training from scratch.
-            
+
     Side Effects:
         - Creates experiment directory and tracking files
-        - Saves model checkpoints during training  
+        - Saves model checkpoints during training
         - Logs metrics and results to experiment tracker
         - Prints training progress and final results
         - May create sample data if none exists
-        
+
     Raises:
         ValueError: If no training data is available.
         FileNotFoundError: If configuration file doesn't exist.
@@ -198,23 +200,23 @@ def train_ner(config_path: str, resume_from_checkpoint: str = None):
 def train_pretraining(config_path: str, resume_from_checkpoint: str = None):
     """
     Train a domain-adaptive pretraining model for Portuguese legal texts.
-    
+
     Performs masked language model pretraining on domain-specific text to
     adapt a base language model to Portuguese legal vocabulary and patterns.
     This improves performance when subsequently fine-tuning on NER tasks.
-    
+
     Args:
         config_path (str): Path to YAML configuration file. Must include
             pretraining_data field pointing to raw text files.
         resume_from_checkpoint (str, optional): Path to checkpoint directory
             to resume pretraining from. If None, starts from base model.
-            
+
     Side Effects:
         - Creates experiment directory and tracking files
         - Saves model checkpoints during pretraining
         - Logs pretraining metrics and progress
         - Saves final domain-adapted model for later NER fine-tuning
-        
+
     Raises:
         ValueError: If pretraining data is not specified in config.
         FileNotFoundError: If configuration or data files don't exist.
@@ -322,11 +324,11 @@ def train_pretraining(config_path: str, resume_from_checkpoint: str = None):
 def list_experiments():
     """
     List all available experiments with summary information.
-    
+
     Displays a formatted table of all experiments showing key information
     like experiment ID, name, type, status, and duration. Helps users
     track and compare different experimental runs.
-    
+
     Side Effects:
         - Prints formatted experiment list to console
         - Shows "No experiments found" if none exist
@@ -368,15 +370,15 @@ def list_experiments():
 def show_experiment(experiment_id: str):
     """
     Display detailed information about a specific experiment.
-    
+
     Shows comprehensive details about an experiment including configuration,
     training results, evaluation metrics, and file artifacts. Useful for
     analyzing and comparing experimental results.
-    
+
     Args:
         experiment_id (str): Unique identifier of the experiment to display.
             Should be in format "{experiment_name}_{timestamp}".
-            
+
     Side Effects:
         - Prints detailed experiment information to console
         - Shows "Experiment not found" message if ID doesn't exist
@@ -420,20 +422,76 @@ def show_experiment(experiment_id: str):
             print(f"  - {artifact}")
 
 
+def run_inference(config_path: str):
+    """
+    Run Named Entity Recognition inference on Portuguese legal documents.
+
+    Performs NER inference using a trained model on input text documents,
+    extracting entities and saving results in JSONL format with character-level
+    spans for each identified entity.
+
+    Args:
+        config_path (str): Path to YAML inference configuration file. Must include
+            model_path, input_file, and output_file specifications.
+
+    Side Effects:
+        - Loads trained model and tokenizer from specified path
+        - Reads input text file and processes paragraphs
+        - Saves predictions to output JSONL file
+        - Logs inference progress and results
+
+    Raises:
+        FileNotFoundError: If configuration, model, or input files don't exist.
+        ValueError: If model files are corrupted or configuration is invalid.
+        Various inference-related exceptions from underlying components.
+    """
+    # Suppress common warnings for cleaner inference output
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.parallel")
+    warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+
+    # Load inference configuration
+    config_manager = ConfigManager()
+    config = config_manager.load_inference_config(config_path)
+
+    logger.info(f"Starting inference experiment: {config.experiment_name}")
+    logger.info(f"Model: {config.inference.model_path}")
+    logger.info(f"Input: {config.inference.input_file}")
+    logger.info(f"Output: {config.inference.output_file}")
+
+    try:
+        # Load inference engine
+        inference_engine = load_inference_engine(config)
+
+        # Process the input file
+        inference_engine.process_file(
+            input_file=config.inference.input_file,
+            output_file=config.inference.output_file,
+            confidence_threshold=config.inference.confidence_threshold,
+        )
+
+        logger.info(f"Inference completed successfully!")
+        logger.info(f"Results saved to: {config.inference.output_file}")
+
+    except Exception as e:
+        logger.error(f"Inference failed: {e}")
+        raise
+
+
 def main():
     """
     Main CLI entry point and command dispatcher.
-    
+
     Parses command-line arguments and dispatches to appropriate functions
     for training, listing experiments, or showing experiment details.
     Provides a user-friendly interface to the training framework.
-    
+
     The CLI supports the following commands:
     - train: Train a NER model using a configuration file
-    - pretrain: Perform domain-adaptive pretraining  
+    - pretrain: Perform domain-adaptive pretraining
     - list: List all available experiments
     - show: Show detailed information about a specific experiment
-    
+
     Side Effects:
         - Sets environment variables to suppress verbose output
         - Configures warning filters for cleaner console output
@@ -462,6 +520,12 @@ def main():
     pretrain_parser.add_argument("config", help="Path to configuration file")
     pretrain_parser.add_argument("--resume", help="Resume from checkpoint")
 
+    # Inference command
+    inference_parser = subparsers.add_parser(
+        "infer", help="Run NER inference on documents"
+    )
+    inference_parser.add_argument("config", help="Path to inference configuration file")
+
     # List experiments command
     subparsers.add_parser("list", help="List all experiments")
 
@@ -475,6 +539,8 @@ def main():
         train_ner(args.config, args.resume)
     elif args.command == "pretrain":
         train_pretraining(args.config, args.resume)
+    elif args.command == "infer":
+        run_inference(args.config)
     elif args.command == "list":
         list_experiments()
     elif args.command == "show":
