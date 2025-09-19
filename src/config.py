@@ -18,11 +18,11 @@ from dataclasses import dataclass, field
 class ModelConfig:
     """
     Configuration for model settings.
-    
+
     This dataclass encapsulates all model-related parameters including
     the base model name, number of classification labels, and dropout rates
     for different components of the transformer architecture.
-    
+
     Attributes:
         name (str): Hugging Face model name or local path to model.
         num_labels (int): Number of classification labels (default: 19 for Portuguese legal NER).
@@ -39,13 +39,38 @@ class ModelConfig:
 
 
 @dataclass
+class InferenceConfig:
+    """
+    Configuration for inference settings.
+
+    This dataclass contains all parameters related to inference execution,
+    including model path, input/output files, and processing options.
+
+    Attributes:
+        model_path (str): Path to the trained model directory.
+        input_file (str): Path to input text file with paragraphs.
+        output_file (str): Path to output JSONL file with predictions.
+        batch_size (int): Batch size for inference processing.
+        max_length (int): Maximum sequence length for tokenization.
+        confidence_threshold (float): Minimum confidence for entity predictions.
+    """
+
+    model_path: str = ""
+    input_file: str = ""
+    output_file: str = ""
+    batch_size: int = 16
+    max_length: int = 512
+    confidence_threshold: float = 0.5
+
+
+@dataclass
 class DataConfig:
     """
     Configuration for data loading and preprocessing settings.
-    
+
     This dataclass contains all parameters related to data loading,
     file paths, and preprocessing options for the NER training pipeline.
-    
+
     Attributes:
         train_file (str): Path to training data file in CoNLL format.
         val_file (str): Path to validation data file in CoNLL format.
@@ -65,10 +90,10 @@ class DataConfig:
 class TrainingConfig:
     """
     Configuration for training hyperparameters and settings.
-    
+
     This dataclass encompasses all training-related parameters including
     learning rates, batch sizes, evaluation strategies, and hardware options.
-    
+
     Attributes:
         output_dir (str): Directory to save model checkpoints and outputs.
         num_train_epochs (int): Number of training epochs.
@@ -120,11 +145,11 @@ class TrainingConfig:
 class ExperimentConfig:
     """
     Main experiment configuration that aggregates all sub-configurations.
-    
+
     This dataclass serves as the root configuration object that contains
     all experiment metadata and references to model, data, and training
     configurations.
-    
+
     Attributes:
         experiment_name (str): Unique name for the experiment.
         experiment_type (str): Type of experiment ("ner_finetuning" or "domain_pretraining").
@@ -151,10 +176,34 @@ class ExperimentConfig:
     pretrained_model_path: Optional[str] = None
 
 
+@dataclass
+class InferenceExperimentConfig:
+    """
+    Configuration for inference experiments.
+
+    This dataclass aggregates inference-specific configurations and
+    provides a structured way to configure NER inference on legal documents.
+
+    Attributes:
+        experiment_name (str): Unique name for the inference experiment.
+        experiment_type (str): Should be "inference" for inference tasks.
+        description (str): Human-readable description of the inference task.
+        model (ModelConfig): Model configuration (mainly for reference).
+        inference (InferenceConfig): Inference-specific settings.
+    """
+
+    experiment_name: str = "pt_legal_ner_inference"
+    experiment_type: str = "inference"
+    description: str = ""
+
+    model: ModelConfig = field(default_factory=ModelConfig)
+    inference: InferenceConfig = field(default_factory=InferenceConfig)
+
+
 class ConfigManager:
     """
     Configuration manager for experiment configurations.
-    
+
     This class provides utilities for loading, saving, and managing
     experiment configurations from/to YAML files. It handles the conversion
     between YAML format and Python dataclass objects.
@@ -163,7 +212,7 @@ class ConfigManager:
     def __init__(self, config_dir: str = "experiments/configs"):
         """
         Initialize the configuration manager.
-        
+
         Args:
             config_dir (str): Directory to store configuration files.
                 Defaults to "experiments/configs".
@@ -174,17 +223,17 @@ class ConfigManager:
     def load_config(self, config_path: str) -> ExperimentConfig:
         """
         Load configuration from a YAML file.
-        
+
         Reads a YAML configuration file and converts it to an ExperimentConfig
         object with nested dataclass instances for model, data, and training
         configurations.
-        
+
         Args:
             config_path (str): Path to the YAML configuration file.
-            
+
         Returns:
             ExperimentConfig: Complete experiment configuration object.
-            
+
         Raises:
             FileNotFoundError: If the configuration file doesn't exist.
             yaml.YAMLError: If the YAML file is malformed.
@@ -202,17 +251,46 @@ class ConfigManager:
 
         return ExperimentConfig(**config_dict)
 
+    def load_inference_config(self, config_path: str) -> InferenceExperimentConfig:
+        """
+        Load inference configuration from a YAML file.
+
+        Reads a YAML configuration file specifically for inference tasks and
+        converts it to an InferenceExperimentConfig object with nested
+        dataclass instances.
+
+        Args:
+            config_path (str): Path to the YAML inference configuration file.
+
+        Returns:
+            InferenceExperimentConfig: Complete inference configuration object.
+
+        Raises:
+            FileNotFoundError: If the configuration file doesn't exist.
+            yaml.YAMLError: If the YAML file is malformed.
+        """
+        with open(config_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+
+        # Convert nested dicts to dataclass instances
+        if "model" in config_dict:
+            config_dict["model"] = ModelConfig(**config_dict["model"])
+        if "inference" in config_dict:
+            config_dict["inference"] = InferenceConfig(**config_dict["inference"])
+
+        return InferenceExperimentConfig(**config_dict)
+
     def save_config(self, config: ExperimentConfig, config_path: str):
         """
         Save configuration to a YAML file.
-        
+
         Converts an ExperimentConfig object to a dictionary format and
         saves it as a YAML file with proper formatting and indentation.
-        
+
         Args:
             config (ExperimentConfig): Complete experiment configuration to save.
             config_path (str): Path where the YAML file should be saved.
-            
+
         Raises:
             OSError: If the file cannot be written to the specified path.
         """
@@ -271,10 +349,10 @@ class ConfigManager:
     def list_configs(self) -> list:
         """
         List all available configuration files.
-        
+
         Scans the configuration directory for YAML files and returns
         a list of Path objects pointing to configuration files.
-        
+
         Returns:
             list: List of Path objects for available YAML configuration files.
         """

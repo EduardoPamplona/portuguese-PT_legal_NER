@@ -1,0 +1,15 @@
+experiment_name: "pt_legal_ner_inference"
+experiment_type: "inference"
+description: "Portuguese Legal NER inference on legal documents"
+
+model:
+  name: "eduagarcia/RoBERTaLexPT-base"
+  num_labels: 19
+
+inference:
+  model_path: "models/pt_legal_ner_base_20250911_234807"
+  input_file: "data/input/sample_legal_document.txt"
+  output_file: "data/output/predictions.jsonl"
+  batch_size: 16
+  max_length: 512
+  confidence_threshold: 0.5
