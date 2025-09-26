@@ -22,7 +22,7 @@ NER model evaluation, providing comprehensive metrics and reporting.
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional, Any
+from typing import Dict, Any
 import numpy as np
 import torch
 from transformers import (
@@ -33,7 +33,6 @@ from transformers import (
     DataCollatorForTokenClassification,
 )
 from seqeval.metrics import classification_report as seqeval_classification_report
-from seqeval.metrics import f1_score, precision_score, recall_score, accuracy_score
 
 try:
     from .data import ID_TO_LABEL, DataLoader
@@ -88,12 +87,15 @@ class EvaluationEngine:
         elif device != "auto" and device != "cpu":
             logger.warning(f"Device {device} not available, using CPU")
 
-        logger.info(f"Model loaded successfully for evaluation with {len(ID_TO_LABEL)} entity labels")
+        logger.info(
+            f"Model loaded successfully for evaluation with "
+            f"{len(ID_TO_LABEL)} entity labels"
+        )
 
     def evaluate_dataset(
-        self, 
-        test_file: str, 
-        max_length: int = 512, 
+        self,
+        test_file: str,
+        max_length: int = 512,
         batch_size: int = 32
     ) -> Dict[str, Any]:
         """
@@ -118,26 +120,28 @@ class EvaluationEngine:
 
         # Load test data
         data_loader = DataLoader(
-            tokenizer_name=str(self.model_path), 
+            tokenizer_name=str(self.model_path),
             max_length=max_length
         )
-        
+
         # Use the existing DataLoader to load just the test dataset
         datasets = data_loader.load_datasets(
             train_file=None,
-            val_file=None, 
+            val_file=None,
             test_file=test_file
         )
-        
+
         if "test" not in datasets:
             raise ValueError(f"Could not load test data from {test_file}")
-        
+
         test_dataset = datasets["test"]
-        logger.info(f"Loaded test dataset with {len(test_dataset)} examples")
+        logger.info(
+            f"Loaded test dataset with {len(test_dataset)} examples"
+        )
 
         # Create data collator
         data_collator = DataCollatorForTokenClassification(
-            tokenizer=self.tokenizer, 
+            tokenizer=self.tokenizer,
             padding=True
         )
 
@@ -170,7 +174,7 @@ class EvaluationEngine:
 
         # Combine results
         final_results = {**eval_results, **detailed_metrics}
-        
+
         logger.info("Evaluation completed successfully")
         return final_results
 
@@ -219,45 +223,48 @@ class EvaluationEngine:
         print("\n" + "="*60)
         print("PORTUGUESE LEGAL NER MODEL EVALUATION RESULTS")
         print("="*60)
-        
+
         # Overall metrics
-        print(f"\n📊 OVERALL METRICS:")
+        print("\n📊 OVERALL METRICS:")
         print(f"   Precision: {results.get('eval_precision', 0.0):.4f}")
         print(f"   Recall:    {results.get('eval_recall', 0.0):.4f}")
         print(f"   F1-Score:  {results.get('eval_f1', 0.0):.4f}")
         print(f"   Accuracy:  {results.get('eval_accuracy', 0.0):.4f}")
-        
+
         # Dataset info
         if 'num_test_examples' in results:
-            print(f"\n📝 DATASET INFO:")
+            print("\n📝 DATASET INFO:")
             print(f"   Test Examples: {results['num_test_examples']}")
-            print(f"   Avg Sequence Length: {results.get('avg_sequence_length', 0.0):.1f}")
-        
+            avg_len = results.get('avg_sequence_length', 0.0)
+            print(f"   Avg Sequence Length: {avg_len:.1f}")
+
         # Per-entity metrics
-        print(f"\n🏷️  PER-ENTITY METRICS:")
-        print(f"{'Entity':<15} {'Precision':<10} {'Recall':<10} {'F1-Score':<10} {'Support':<10}")
+        print("\n🏷️  PER-ENTITY METRICS:")
+        print(f"{'Entity':<15} {'Precision':<10} {'Recall':<10} "
+              f"{'F1-Score':<10} {'Support':<10}")
         print("-" * 60)
-        
+
         entity_types = []
         for key in results.keys():
             if key.endswith('_f1') and not key.startswith('eval_'):
                 entity_type = key.replace('_f1', '')
                 entity_types.append(entity_type)
-        
+
         for entity in sorted(entity_types):
             precision = results.get(f'eval_{entity}_precision', 0.0)
             recall = results.get(f'eval_{entity}_recall', 0.0)
             f1 = results.get(f'eval_{entity}_f1', 0.0)
             support = results.get(f'eval_{entity}_support', 0.0)
-            
-            print(f"{entity:<15} {precision:<10.4f} {recall:<10.4f} {f1:<10.4f} {support:<10.0f}")
-        
+
+            print(f"{entity:<15} {precision:<10.4f} {recall:<10.4f} "
+                  f"{f1:<10.4f} {support:<10.0f}")
+
         print("="*60)
 
     def save_evaluation_results(
-        self, 
-        results: Dict[str, Any], 
-        output_file: str, 
+        self,
+        results: Dict[str, Any],
+        output_file: str,
         save_detailed_report: bool = True
     ) -> None:
         """
@@ -270,24 +277,24 @@ class EvaluationEngine:
         """
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Prepare results for saving
         save_results = results.copy()
-        
+
         # Remove detailed report if not requested (it can be large)
         if not save_detailed_report and 'detailed_classification_report' in save_results:
             del save_results['detailed_classification_report']
-        
+
         # Convert numpy types to native Python types for JSON serialization
         for key, value in save_results.items():
             if isinstance(value, np.floating):
                 save_results[key] = float(value)
             elif isinstance(value, np.integer):
                 save_results[key] = int(value)
-        
+
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(save_results, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"Evaluation results saved to {output_file}")
 
 

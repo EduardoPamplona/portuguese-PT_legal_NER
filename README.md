@@ -77,6 +77,47 @@ pt-legal-ner list
 pt-legal-ner show <experiment_id>
 ```
 
+## 🔍 Model Evaluation
+
+After training a model, you can evaluate its performance on test data:
+
+1. **Prepare test data** in CoNLL format in `data/test.conll`
+
+2. **Update evaluation configuration**:
+```bash
+# Edit experiments/configs/evaluation_base.yaml
+# Update: model_path: "models/your_trained_model_id"
+```
+
+3. **Run evaluation**:
+```bash
+pt-legal-ner evaluate experiments/configs/evaluation_base.yaml
+```
+
+4. **View results**: The evaluation will display:
+   - Overall metrics (Precision, Recall, F1-Score, Accuracy)
+   - Per-entity-type performance statistics
+   - Support counts for each entity type
+   - Optionally save detailed results to JSON file
+
+Example output:
+```
+📊 OVERALL METRICS:
+   Precision: 0.9156
+   Recall:    0.9089
+   F1-Score:  0.9122
+   Accuracy:  0.9834
+
+🏷️  PER-ENTITY METRICS:
+Entity          Precision  Recall     F1-Score   Support   
+------------------------------------------------------------
+PER             0.9500     0.9268     0.9383     41        
+ORG             0.8750     0.9333     0.9032     15        
+LOC             0.9231     0.8571     0.8889     21        
+DAT             0.8889     0.8000     0.8421     10        
+...
+```
+
 ## 🎯 Training Workflows
 
 ### Option 1: Direct NER Fine-tuning (Faster)
@@ -156,6 +197,30 @@ training:
   fp16: true
 ```
 
+### Evaluation Configuration
+
+For model evaluation, create a YAML configuration file:
+
+```yaml
+# experiments/configs/evaluation_example.yaml
+experiment_name: "pt_legal_ner_evaluation"
+experiment_type: "evaluation"
+description: "Evaluate Portuguese Legal NER model performance"
+
+model:
+  name: "eduagarcia/RoBERTaLexPT-base"
+  num_labels: 19
+
+evaluation:
+  model_path: "models/your_trained_model"    # Path to trained model
+  test_file: "data/test.conll"               # Test data in CoNLL format
+  output_file: "evaluation_results.json"     # Save results (optional)
+  batch_size: 32                            # Evaluation batch size
+  max_length: 512                           # Maximum sequence length
+  save_predictions: false                    # Save model predictions
+  save_detailed_report: true                # Include detailed metrics
+```
+
 ## 📊 Experiment Tracking
 
 The framework automatically tracks:
@@ -232,6 +297,12 @@ pt-legal-ner train <config_path> [--resume <checkpoint>]
 
 # Domain pretraining
 pt-legal-ner pretrain <config_path> [--resume <checkpoint>]
+
+# Run inference on documents
+pt-legal-ner infer <config_path>
+
+# Evaluate a trained model
+pt-legal-ner evaluate <config_path>
 
 # List all experiments
 pt-legal-ner list
