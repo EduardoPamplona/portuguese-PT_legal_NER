@@ -8,8 +8,10 @@ A comprehensive, production-ready framework for training Named Entity Recognitio
 - **🏷️ Comprehensive Entity Support**: Detects 9 entity types crucial for legal document anonymization
 - **🔄 Two-Stage Training**: Domain-adaptive pretraining followed by NER fine-tuning for optimal performance
 - **📊 Experiment Tracking**: Built-in experiment management with metrics tracking and visualization
+- **🔍 Model Evaluation**: Comprehensive evaluation with per-entity metrics and detailed reporting
+- **⚡ Inference Ready**: Fast inference engine for production use
 - **🏗️ Production Ready**: Modular, configurable, and scalable architecture
-- **⚡ Easy to Use**: Simple CLI interface for training and experiment management
+- **⚡ Easy to Use**: Simple CLI interface for training, evaluation, and inference
 
 ## 🏷️ Supported Entity Types
 
@@ -75,6 +77,47 @@ pt-legal-ner train experiments/configs/ner_base.yaml
 ```bash
 pt-legal-ner list
 pt-legal-ner show <experiment_id>
+```
+
+## 🔍 Model Evaluation
+
+After training a model, you can evaluate its performance on test data:
+
+1. **Prepare test data** in CoNLL format in `data/test.conll`
+
+2. **Update evaluation configuration**:
+```bash
+# Edit experiments/configs/evaluation_base.yaml
+# Update: model_path: "models/your_trained_model_id"
+```
+
+3. **Run evaluation**:
+```bash
+pt-legal-ner evaluate experiments/configs/evaluation_base.yaml
+```
+
+4. **View results**: The evaluation will display:
+   - Overall metrics (Precision, Recall, F1-Score, Accuracy)
+   - Per-entity-type performance statistics
+   - Support counts for each entity type
+   - Optionally save detailed results to JSON file
+
+Example output:
+```
+📊 OVERALL METRICS:
+   Precision: 0.9156
+   Recall:    0.9089
+   F1-Score:  0.9122
+   Accuracy:  0.9834
+
+🏷️  PER-ENTITY METRICS:
+Entity          Precision  Recall     F1-Score   Support   
+------------------------------------------------------------
+PER             0.9500     0.9268     0.9383     41        
+ORG             0.8750     0.9333     0.9032     15        
+LOC             0.9231     0.8571     0.8889     21        
+DAT             0.8889     0.8000     0.8421     10        
+...
 ```
 
 ## 🎯 Training Workflows
@@ -156,6 +199,30 @@ training:
   fp16: true
 ```
 
+### Evaluation Configuration
+
+For model evaluation, create a YAML configuration file:
+
+```yaml
+# experiments/configs/evaluation_example.yaml
+experiment_name: "pt_legal_ner_evaluation"
+experiment_type: "evaluation"
+description: "Evaluate Portuguese Legal NER model performance"
+
+model:
+  name: "eduagarcia/RoBERTaLexPT-base"
+  num_labels: 19
+
+evaluation:
+  model_path: "models/your_trained_model"    # Path to trained model
+  test_file: "data/test.conll"               # Test data in CoNLL format
+  output_file: "evaluation_results.json"     # Save results (optional)
+  batch_size: 32                            # Evaluation batch size
+  max_length: 512                           # Maximum sequence length
+  save_predictions: false                    # Save model predictions
+  save_detailed_report: true                # Include detailed metrics
+```
+
 ## 📊 Experiment Tracking
 
 The framework automatically tracks:
@@ -209,19 +276,28 @@ s_train/
 │   ├── data.py                  # Data loading and preprocessing
 │   ├── models.py                # Model factory and utilities
 │   ├── training.py              # Training logic and metrics
-│   └── tracking.py              # Experiment tracking
+│   ├── tracking.py              # Experiment tracking
+│   ├── inference.py             # Inference engine
+│   └── evaluation.py            # Model evaluation engine
 ├── experiments/
 │   ├── configs/                 # Training configurations
 │   │   ├── ner_base.yaml       # Basic NER fine-tuning
 │   │   ├── domain_pretraining.yaml  # Domain pretraining
-│   │   └── ner_domain_adapted.yaml  # Two-stage training
+│   │   ├── ner_domain_adapted.yaml  # Two-stage training
+│   │   ├── inference_base.yaml  # Inference configuration
+│   │   └── evaluation_base.yaml # Evaluation configuration
 │   └── runs/                    # Experiment results
+├── examples/                     # Example scripts
+│   ├── inference_example.py     # Inference usage example
+│   └── evaluation_example.py    # Evaluation usage example
 ├── data/                        # Training data
 ├── models/                      # Saved models
 ├── requirements.txt             # Python dependencies
 ├── setup.py                     # Package setup
 ├── .gitignore                   # Git ignore rules
-└── README.md                    # This file
+├── README.md                    # This file
+├── INFERENCE_README.md          # Detailed inference documentation
+└── EVALUATION_README.md         # Detailed evaluation documentation
 ```
 
 ## 🛠️ CLI Commands
@@ -232,6 +308,12 @@ pt-legal-ner train <config_path> [--resume <checkpoint>]
 
 # Domain pretraining
 pt-legal-ner pretrain <config_path> [--resume <checkpoint>]
+
+# Run inference on documents
+pt-legal-ner infer <config_path>
+
+# Evaluate a trained model
+pt-legal-ner evaluate <config_path>
 
 # List all experiments
 pt-legal-ner list

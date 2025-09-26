@@ -25,19 +25,21 @@ import os
 import warnings
 
 try:
-    from .config import ConfigManager, ExperimentConfig, InferenceExperimentConfig
+    from .config import ConfigManager, ExperimentConfig, InferenceExperimentConfig, EvaluationExperimentConfig
     from .data import DataLoader
     from .models import ModelFactory
     from .training import TrainingManager, compute_metrics
     from .tracking import ExperimentTracker
     from .inference import InferenceEngine, load_inference_engine
+    from .evaluation import EvaluationEngine, load_evaluation_engine
 except ImportError:
-    from config import ConfigManager, ExperimentConfig, InferenceExperimentConfig
+    from config import ConfigManager, ExperimentConfig, InferenceExperimentConfig, EvaluationExperimentConfig
     from data import DataLoader
     from models import ModelFactory
     from training import TrainingManager, compute_metrics
     from tracking import ExperimentTracker
     from inference import InferenceEngine, load_inference_engine
+    from evaluation import EvaluationEngine, load_evaluation_engine
 from transformers import TrainingArguments, set_seed
 
 logging.basicConfig(
@@ -478,6 +480,73 @@ def run_inference(config_path: str):
         raise
 
 
+def run_evaluation(config_path: str):
+    """
+    Run Named Entity Recognition model evaluation on Portuguese legal test data.
+
+    Performs comprehensive NER model evaluation using a trained model on test
+    datasets, computing detailed metrics including precision, recall, and F1-score
+    for each entity type and overall performance.
+
+    Args:
+        config_path (str): Path to YAML evaluation configuration file. Must include
+            model_path and test_file specifications.
+
+    Side Effects:
+        - Loads trained model and tokenizer from specified path
+        - Reads test data in CoNLL format and processes it
+        - Computes comprehensive evaluation metrics
+        - Prints detailed evaluation results to console
+        - Optionally saves results to output file
+
+    Raises:
+        FileNotFoundError: If configuration, model, or test files don't exist.
+        ValueError: If model files are corrupted or configuration/data is invalid.
+        Various evaluation-related exceptions from underlying components.
+    """
+    # Suppress common warnings for cleaner evaluation output
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    warnings.filterwarnings("ignore", category=UserWarning, module="torch.nn.parallel")
+    warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+
+    # Load evaluation configuration
+    config_manager = ConfigManager()
+    config = config_manager.load_evaluation_config(config_path)
+
+    logger.info(f"Starting evaluation experiment: {config.experiment_name}")
+    logger.info(f"Model: {config.evaluation.model_path}")
+    logger.info(f"Test file: {config.evaluation.test_file}")
+
+    try:
+        # Load evaluation engine
+        evaluation_engine = load_evaluation_engine(config)
+
+        # Run evaluation
+        results = evaluation_engine.evaluate_dataset(
+            test_file=config.evaluation.test_file,
+            max_length=config.evaluation.max_length,
+            batch_size=config.evaluation.batch_size,
+        )
+
+        # Print results to console
+        evaluation_engine.print_evaluation_results(results)
+
+        # Save results if output file is specified
+        if config.evaluation.output_file:
+            evaluation_engine.save_evaluation_results(
+                results=results,
+                output_file=config.evaluation.output_file,
+                save_detailed_report=config.evaluation.save_detailed_report,
+            )
+            logger.info(f"Evaluation results saved to: {config.evaluation.output_file}")
+
+        logger.info(f"Evaluation completed successfully!")
+
+    except Exception as e:
+        logger.error(f"Evaluation failed: {e}")
+        raise
+
+
 def main():
     """
     Main CLI entry point and command dispatcher.
@@ -489,6 +558,8 @@ def main():
     The CLI supports the following commands:
     - train: Train a NER model using a configuration file
     - pretrain: Perform domain-adaptive pretraining
+    - infer: Run NER inference on documents
+    - evaluate: Evaluate a trained NER model on test data
     - list: List all available experiments
     - show: Show detailed information about a specific experiment
 
@@ -526,6 +597,12 @@ def main():
     )
     inference_parser.add_argument("config", help="Path to inference configuration file")
 
+    # Evaluation command
+    evaluation_parser = subparsers.add_parser(
+        "evaluate", help="Evaluate a trained NER model"
+    )
+    evaluation_parser.add_argument("config", help="Path to evaluation configuration file")
+
     # List experiments command
     subparsers.add_parser("list", help="List all experiments")
 
@@ -541,6 +618,8 @@ def main():
         train_pretraining(args.config, args.resume)
     elif args.command == "infer":
         run_inference(args.config)
+    elif args.command == "evaluate":
+        run_evaluation(args.config)
     elif args.command == "list":
         list_experiments()
     elif args.command == "show":

@@ -1,0 +1,16 @@
+experiment_name: "pt_legal_ner_evaluation"
+experiment_type: "evaluation"
+description: "Evaluate Portuguese Legal NER model on test data"
+
+model:
+  name: "eduagarcia/RoBERTaLexPT-base"
+  num_labels: 19
+
+evaluation:
+  model_path: "models/your_trained_model"  # Path to your trained model
+  test_file: "data/test.conll"             # Path to test data in CoNLL format
+  output_file: "evaluation_results.json"   # Path to save evaluation results (optional)
+  batch_size: 32
+  max_length: 512
+  save_predictions: false                   # Whether to save model predictions
+  save_detailed_report: true               # Whether to include detailed classification report

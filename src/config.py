@@ -64,6 +64,33 @@ class InferenceConfig:
 
 
 @dataclass
+class EvaluationConfig:
+    """
+    Configuration for evaluation settings.
+
+    This dataclass contains all parameters related to model evaluation,
+    including model path, test data, and output options.
+
+    Attributes:
+        model_path (str): Path to the trained model directory.
+        test_file (str): Path to test data file in CoNLL format.
+        output_file (str): Path to output file for evaluation results (optional).
+        batch_size (int): Batch size for evaluation processing.
+        max_length (int): Maximum sequence length for tokenization.
+        save_predictions (bool): Whether to save predictions to file.
+        save_detailed_report (bool): Whether to save detailed classification report.
+    """
+
+    model_path: str = ""
+    test_file: str = "data/test.conll"
+    output_file: str = ""
+    batch_size: int = 32
+    max_length: int = 512
+    save_predictions: bool = False
+    save_detailed_report: bool = True
+
+
+@dataclass
 class DataConfig:
     """
     Configuration for data loading and preprocessing settings.
@@ -200,6 +227,30 @@ class InferenceExperimentConfig:
     inference: InferenceConfig = field(default_factory=InferenceConfig)
 
 
+@dataclass
+class EvaluationExperimentConfig:
+    """
+    Configuration for evaluation experiments.
+
+    This dataclass aggregates evaluation-specific configurations and
+    provides a structured way to configure NER model evaluation on test data.
+
+    Attributes:
+        experiment_name (str): Unique name for the evaluation experiment.
+        experiment_type (str): Should be "evaluation" for evaluation tasks.
+        description (str): Human-readable description of the evaluation task.
+        model (ModelConfig): Model configuration (mainly for reference).
+        evaluation (EvaluationConfig): Evaluation-specific settings.
+    """
+
+    experiment_name: str = "pt_legal_ner_evaluation"
+    experiment_type: str = "evaluation"
+    description: str = ""
+
+    model: ModelConfig = field(default_factory=ModelConfig)
+    evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+
+
 class ConfigManager:
     """
     Configuration manager for experiment configurations.
@@ -279,6 +330,35 @@ class ConfigManager:
             config_dict["inference"] = InferenceConfig(**config_dict["inference"])
 
         return InferenceExperimentConfig(**config_dict)
+
+    def load_evaluation_config(self, config_path: str) -> EvaluationExperimentConfig:
+        """
+        Load evaluation configuration from a YAML file.
+
+        Reads a YAML configuration file specifically for evaluation tasks and
+        converts it to an EvaluationExperimentConfig object with nested
+        dataclass instances.
+
+        Args:
+            config_path (str): Path to the YAML evaluation configuration file.
+
+        Returns:
+            EvaluationExperimentConfig: Complete evaluation configuration object.
+
+        Raises:
+            FileNotFoundError: If the configuration file doesn't exist.
+            yaml.YAMLError: If the YAML file is malformed.
+        """
+        with open(config_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+
+        # Convert nested dicts to dataclass instances
+        if "model" in config_dict:
+            config_dict["model"] = ModelConfig(**config_dict["model"])
+        if "evaluation" in config_dict:
+            config_dict["evaluation"] = EvaluationConfig(**config_dict["evaluation"])
+
+        return EvaluationExperimentConfig(**config_dict)
 
     def save_config(self, config: ExperimentConfig, config_path: str):
         """
