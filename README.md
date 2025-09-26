@@ -8,8 +8,10 @@ A comprehensive, production-ready framework for training Named Entity Recognitio
 - **🏷️ Comprehensive Entity Support**: Detects 9 entity types crucial for legal document anonymization
 - **🔄 Two-Stage Training**: Domain-adaptive pretraining followed by NER fine-tuning for optimal performance
 - **📊 Experiment Tracking**: Built-in experiment management with metrics tracking and visualization
+- **🔍 Model Evaluation**: Comprehensive evaluation with per-entity metrics and detailed reporting
+- **⚡ Inference Ready**: Fast inference engine for production use
 - **🏗️ Production Ready**: Modular, configurable, and scalable architecture
-- **⚡ Easy to Use**: Simple CLI interface for training and experiment management
+- **⚡ Easy to Use**: Simple CLI interface for training, evaluation, and inference
 
 ## 🏷️ Supported Entity Types
 
@@ -274,19 +276,28 @@ s_train/
 │   ├── data.py                  # Data loading and preprocessing
 │   ├── models.py                # Model factory and utilities
 │   ├── training.py              # Training logic and metrics
-│   └── tracking.py              # Experiment tracking
+│   ├── tracking.py              # Experiment tracking
+│   ├── inference.py             # Inference engine
+│   └── evaluation.py            # Model evaluation engine
 ├── experiments/
 │   ├── configs/                 # Training configurations
 │   │   ├── ner_base.yaml       # Basic NER fine-tuning
 │   │   ├── domain_pretraining.yaml  # Domain pretraining
-│   │   └── ner_domain_adapted.yaml  # Two-stage training
+│   │   ├── ner_domain_adapted.yaml  # Two-stage training
+│   │   ├── inference_base.yaml  # Inference configuration
+│   │   └── evaluation_base.yaml # Evaluation configuration
 │   └── runs/                    # Experiment results
+├── examples/                     # Example scripts
+│   ├── inference_example.py     # Inference usage example
+│   └── evaluation_example.py    # Evaluation usage example
 ├── data/                        # Training data
 ├── models/                      # Saved models
 ├── requirements.txt             # Python dependencies
 ├── setup.py                     # Package setup
 ├── .gitignore                   # Git ignore rules
-└── README.md                    # This file
+├── README.md                    # This file
+├── INFERENCE_README.md          # Detailed inference documentation
+└── EVALUATION_README.md         # Detailed evaluation documentation
 ```
 
 ## 🛠️ CLI Commands
